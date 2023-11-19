@@ -42,12 +42,16 @@ app.listen(PORT, () => {
 function buildPrompt(textCorpus) {
   return `
 As a knowledgeable assistant in chemical engineering, your task is to analyze the following text and extract key information to construct a process flow diagram. Focus on identifying the various process units (nodes) and the flow of materials or operations between them (edges). For each transition, provide a clear description of the process occurring. Your output should list each connection in the format: 
+
+From and To nodes should be in the format below. Make sure you dont include any special characteres in the nodes like (, . etc)
 From: [starting process unit/chemical]
 To: [ending process unit/chemical]
 Edge Description: [description of the process or material flow (try to keep it max 5 words)]
  
+
 Please ensure the output is concise and accurately reflects the process flow described in the text. Consider all relevant chemical engineering principles and standard industry practices in your analysis.    
 Make sure you do not use any special characters in your output. Only allowed characters are: a-z, A-Z, 0-9, comma, period,[],\n, and space.
+
 Do not give any none values for the nodes, maintain the format From: [starting process unit/chemical] and To: [ending process unit/chemical] for all the nodes.
 And for edges, if you are not able to find any edge description, please give the edge description as "".
 Text Corpus Input:
