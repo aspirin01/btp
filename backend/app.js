@@ -57,6 +57,7 @@ And for edges, if you are not able to find any edge description, please give the
 Text Corpus Input:
 ${textCorpus}
 
+Do not give anything else like summary or conclusion, only give the graph as required above.
 Based on the information provided, construct the connections and describe the process flow accurately.
 `;
 }
