@@ -43,24 +43,74 @@ function buildPrompt(textCorpus) {
   return `
 As a knowledgeable assistant in chemical engineering, your task is to analyze the following text and extract key information to construct a process flow diagram. Focus on identifying the various process units (nodes) and the flow of materials or operations between them (edges). For each transition, provide a clear description of the process occurring. Your output should list each connection in the format: 
 
-From and To nodes should be in the format below. Make sure you dont include any special characteres in the nodes like (, . etc)
-From: [starting process unit/chemical]
-To: [ending process unit/chemical]
-Edge Description: [description of the process or material flow (try to keep it max 5 words)]
+
+Follow this format strictly, I dont want any other format. DO NOT Include '(' or ')' in this format
+From: 
+To: 
+Edge Description: 
+
+In this "From" is starting process unit/chemical and "To" is ending process unit/chemical. And "Edge Description" is the description of the process between the two nodes(try to keep it at max 30 characters).
  
+Ensure that it should cover the steps from the initial selection of the
+process to be used, through to the issuing of the process flowsheets and includes
+the selection, specification, and chemical engineering design of equipment and the output is concise and accurately reflects the process flow described in the text. 
 
-Please ensure the output is concise and accurately reflects the process flow described in the text. Consider all relevant chemical engineering principles and standard industry practices in your analysis.    
-Make sure you do not use any special characters in your output. Only allowed characters are: a-z, A-Z, 0-9, comma, period,[],\n, and space.
+Consider all relevant chemical engineering technology principles and standard industry practices in your analysis.    
 
-Do not give any none values for the nodes, maintain the format From: [starting process unit/chemical] and To: [ending process unit/chemical] for all the nodes.
+Maintain the format From: starting process unit/chemical and To: ending process unit/chemical for all the nodes.
+
 And for edges, if you are not able to find any edge description, please give the edge description as "".
 Text Corpus Input:
+
 ${textCorpus}
 
-Do not give anything else like summary or conclusion, only give the graph as required above.
+DO NOT! give anything else like summary or conclusion, only give the graph in the format as required above.
 Based on the information provided, construct the connections and describe the process flow accurately.
+
+
+Again reminding, Do NOT GIVE Anything else other than the graph in the format as required above.
+
 `;
 }
+// function buildPrompt(textCorpus) {
+//   const promptData = {
+//       "instructions": {
+//           "context": "Chemical Engineering Process Analysis",
+//           "task_description": "Analyze the text to construct a process flow diagram in a JSON format.",
+//           "objectives": [
+//               "Identify process units (nodes).",
+//               "Identify flow of materials or operations (edges).",
+//               "Provide a clear and concise description for each process transition."
+//           ],
+//           "output_requirements": {
+//               "format": "Output each connection as a JSON object within an array.",
+//               "example": `[
+//                       "from": "Example Start Process",
+//                       "to": "Example End Process",
+//                       "edge_description": "Example Process Description",  
+//               ]`,
+//               "notes": "Use an empty string for 'edge_description' if not applicable."
+//           },
+//           "process_coverage": [
+//               "Include steps from initial process selection to process flowsheet issuance.",
+//               "Incorporate equipment selection, specification, and design."
+//           ],
+//           "quality_guidelines": {
+//               "conciseness": "Output should be concise and accurate.",
+//               "relevance": "Reflect the process flow described in the text.",
+//               "standard_practices": "Adhere to chemical engineering principles and industry practices."
+//           },
+//           "restrictions": {
+//               "content_limitations": ["Do not include summary or conclusion."],
+//               "format_adherence": "Strictly follow the provided JSON format for output."
+//           }
+//       },
+//       "text_corpus": textCorpus
+//   };
+
+//   return JSON.stringify(promptData, null, 4);
+// }
+
 
 async function extractRelationships(input) {
   try {
@@ -119,28 +169,32 @@ async function run() {
 // run()
 
 function outputProcessor(output) {
-    const lines = output.split('\n');
+    const lines = output?.split('\n');
     console.log(lines);
     const nodes = {};
     const links = [];
 
     for (let i = 0; i < lines.length; i += 4) {
-      const fromNode = lines[i]?.replace('From: ', '').trim();
-      const toNode = lines[i + 1]?.replace('To: ', '').trim();
+      let fromNode = lines[i]?.replace('From: ', '').trim();
+      let toNode = lines[i + 1]?.replace('To: ', '').trim();
+      // clean up the node names based on Mermiad syntax replace all special characters with _
+      // fromNode = fromNode.replace(/[^a-zA-Z0-9 ]/g, '_');
+      // toNode = toNode.replace(/[^a-zA-Z0-9 ]/g, '_');
+      if (fromNode === '' || toNode === '') fromNode = toNode = 'output/input';
       const processDescription = lines[i + 2]?.replace('Edge Description: ', '').trim();
   
       // Create or update nodes
       if (!nodes[fromNode]) {
-        nodes[fromNode] = { id: fromNode };
+        nodes[fromNode] = { id: (fromNode) };
       }
       if (!nodes[toNode]) {
-        nodes[toNode] = { id: toNode };
+        nodes[toNode] = { id: (toNode) };
       }
   
       // Create a link between fromNode and toNode
       links.push({
-        source: fromNode,
-        target: toNode,
+        source: hasher(fromNode),
+        target: hasher(toNode),
         description: processDescription,
       });
     }
@@ -150,31 +204,46 @@ function outputProcessor(output) {
   
     return { nodes: nodesArray, links };
   }
+  function hasher(str) {
+    let hash = 0;
+    // this should be an exact 12 digit string to avoid collisions, implement a better hashing function if needed
+    
+    const hashLength = 12;
+    for (let i = 0; i < str?.length; i++) {
+      hash = ((hash << 5) - hash + str.charCodeAt(i)) & 0xffffffff;
+    }
+    let hashString = hash.toString();
+    if (hashString.length < hashLength) {
+      hashString = hashString.padStart(hashLength, '0');
+    }
+    return hashString;
+  }
   function convertToMermaidGraph(data) {
     const { nodes, links } = data;
   
     // Helper function to format labels with line breaks after every two words
     function formatLabel(label) {
-      const words = label.split(' ');
+      const words = label?.split(' ');
       let formattedLabel = '';
-      for (let i = 0; i < words.length; i++) {
+      for (let i = 0; i < words?.length; i++) {
         formattedLabel += words[i] + ' ';
-        if ((i + 1) % 2 === 0 && i + 1 < words.length) formattedLabel += '\\n '; // Add line break
+        if ((i + 1) % 2 === 0 && i + 1 < words?.length) formattedLabel += '\\n '; // Add line break
       }
       return formattedLabel;
     }
   
     // Convert nodes to Mermaid format
-    const mermaidNodes = nodes.map(node => `${node.id.replace(/\s+/g, '_')}["${formatLabel(node.id)}"]`);
+    const mermaidNodes = nodes.map(node => `${hasher(node.id)}["${formatLabel(node.id)?.replace(`(`,'')?.replace(`)`,'')}"]`);
   
     // Convert links to Mermaid format with quotations
     const mermaidLinks = links.map(link => {
-      const sourceId = link.source.replace(/\s+/g, '_');
-      const targetId = link.target.replace(/\s+/g, '_');
-      const formattedDescription = `"${formatLabel(link.description)}"`; // Enclose link descriptions in quotes
-      return `${sourceId} -->|${formattedDescription}| ${targetId}`;
+      const sourceId = link.source;
+      const targetId = link.target;
+      const formattedDescription = `${formatLabel(link.description?.replace(`"`,''))}`?.replace(`"`,''); // Enclose link descriptions in quotes
+      if(formattedDescription?.length<=2)return `${sourceId} --> ${targetId}`;
+      return `${sourceId} -->|"${formattedDescription}"| ${targetId}`;
     });
-  
+    console.log(`graph TB\n  ${mermaidNodes.join('\n  ')}\n  ${mermaidLinks.join('\n  ')}`)
     // Combine nodes and links into Mermaid graph syntax
     return `graph TB\n  ${mermaidNodes.join('\n  ')}\n  ${mermaidLinks.join('\n  ')}`;
   }
